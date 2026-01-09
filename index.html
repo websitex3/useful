@@ -3,118 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Universal Converter</title>
+    <title>TurboConvert | Universal File Converter</title>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
     <style>
         :root { --primary: #00dc82; --bg: #080808; --card: #141414; --text: #ffffff; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: var(--card); padding: 40px; border-radius: 24px; width: 450px; text-align: center; border: 1px solid #222; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 40px; border-radius: 24px; width: 450px; text-align: center; border: 1px solid #222; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        
+        /* Step Management */
         .step { display: none; }
         .step.active { display: block; }
-        .upload-box { border: 2px dashed #333; padding: 40px; border-radius: 15px; cursor: pointer; transition: 0.3s; }
+
+        /* Step 1: Upload UI */
+        .upload-box { border: 2px dashed #333; padding: 50px 20px; border-radius: 20px; cursor: pointer; transition: 0.3s; background: #0f0f0f; }
         .upload-box:hover { border-color: var(--primary); background: #1a1a1a; }
-        .progress-container { width: 100%; background: #222; height: 8px; border-radius: 10px; margin: 20px 0; overflow: hidden; display: none; }
-        .progress-bar { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.1s; }
-        select, button { width: 100%; padding: 15px; margin-top: 15px; border-radius: 12px; border: none; font-size: 16px; }
-        select { background: #222; color: white; }
-        button { background: var(--primary); color: black; font-weight: bold; cursor: pointer; }
+        .upload-box p { color: #888; margin: 10px 0 0; }
+
+        /* Step 2: Convert UI */
+        .file-info { margin-bottom: 5px; color: var(--primary); font-weight: bold; font-size: 18px; }
+        #sizeDisplay { font-size: 14px; color: #666; margin-bottom: 20px; }
+        
+        select, button { width: 100%; padding: 15px; margin-top: 15px; border-radius: 12px; border: none; font-size: 16px; outline: none; }
+        select { background: #222; color: white; cursor: pointer; border: 1px solid #333; }
+        button { background: var(--primary); color: black; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .error-msg { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); padding: 10px; border-radius: 8px; margin-top: 15px; display: none; border: 1px solid #ff4d4d; }
-        .file-info { margin-bottom: 20px; color: var(--primary); font-weight: bold; }
+
+        /* Feedback Elements */
+        .progress-container { width: 100%; background: #222; height: 10px; border-radius: 10px; margin: 25px 0 10px; overflow: hidden; display: none; }
+        .progress-bar { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.2s ease; }
+        
+        #warningBox { display: none; color: #fbbf24; background: rgba(251, 191, 36, 0.1); padding: 12px; border-radius: 10px; font-size: 13px; border: 1px solid #fbbf24; margin-bottom: 15px; text-align: left; }
+        .error-msg { color: #ff4d4d; background: rgba(255, 77, 77, 0.1); padding: 12px; border-radius: 10px; margin-top: 15px; display: none; border: 1px solid #ff4d4d; font-size: 14px; }
+        
+        .footer-link { background: transparent; color: #555; font-size: 12px; margin-top: 20px; cursor: pointer; border: none; }
+        .footer-link:hover { color: #888; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="step1" class="step active">
-        <h2>Upload File</h2>
+        <h2 style="margin-top:0">TurboConvert</h2>
         <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-            <p>Click to browse or Drag & Drop</p>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#00dc82" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Click to upload or Drag & Drop</p>
             <input type="file" id="fileInput" style="display:none">
         </div>
+        <p style="font-size: 11px; color: #444; margin-top: 20px;">Fast, Local, No File Size Limits.</p>
     </div>
 
     <div id="step2" class="step">
-        <h2>Convert File</h2>
         <div class="file-info" id="fileNameDisplay"></div>
-        <label style="font-size: 12px; color: #888;">CONVERT TO:</label>
+        <div id="sizeDisplay"></div>
+        
+        <div id="warningBox"></div>
+
+        <label style="font-size: 12px; color: #888; display: block; text-align: left;">CONVERT TO:</label>
         <select id="toFormat">
             <optgroup label="Images">
-                <option value="jpg">JPG</option>
-                <option value="png">PNG</option>
-                <option value="webp">WebP</option>
+                <option value="jpg">JPG (Image)</option>
+                <option value="png">PNG (Image)</option>
+                <option value="webp">WebP (Image)</option>
             </optgroup>
             <optgroup label="Audio/Video">
-                <option value="mp3">MP3</option>
-                <option value="wav">WAV</option>
-                <option value="mp4">MP4</option>
+                <option value="mp3">MP3 (Audio)</option>
+                <option value="wav">WAV (Audio)</option>
+                <option value="mp4">MP4 (Video)</option>
+                <option value="gif">GIF (Animated)</option>
             </optgroup>
         </select>
-        <div class="progress-container" id="progCont"><div class="progress-bar" id="progBar"></div></div>
+
+        <div class="progress-container" id="progCont">
+            <div class="progress-bar" id="progBar"></div>
+        </div>
+
         <div id="errorBox" class="error-msg"></div>
-        <button id="convertBtn">Convert & Download</button>
-        <button onclick="location.reload()" style="background:transparent; color:#888; font-size:12px;">Start Over</button>
+        
+        <button id="convertBtn">Start Conversion</button>
+        <button class="footer-link" onclick="location.reload()">← Cancel & Go Back</button>
     </div>
 </div>
 
 <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
+    const ffmpeg = createFFmpeg({ log: false }); // Set to true for debugging in console
     
     const fileInput = document.getElementById('fileInput');
     const toFormat = document.getElementById('toFormat');
     const convertBtn = document.getElementById('convertBtn');
     const errorBox = document.getElementById('errorBox');
+    const warningBox = document.getElementById('warningBox');
     const progBar = document.getElementById('progBar');
     const progCont = document.getElementById('progCont');
+    const sizeDisplay = document.getElementById('sizeDisplay');
+    
     let selectedFile = null;
 
-    // Load FFmpeg immediately
+    // Load FFmpeg core
     (async () => {
-        try { await ffmpeg.load(); } 
-        catch (e) { console.error("FFmpeg Load Fail:", e); }
+        try { if (!ffmpeg.isLoaded()) await ffmpeg.load(); } 
+        catch (e) { console.error("FFmpeg Failed to Load:", e); }
     })();
 
+    // Format file size
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // File Selection Trigger
     fileInput.addEventListener('change', (e) => {
         selectedFile = e.target.files[0];
         if (selectedFile) {
             document.getElementById('step1').classList.remove('active');
             document.getElementById('step2').classList.add('active');
-            document.getElementById('fileNameDisplay').innerText = `Selected: ${selectedFile.name}`;
+            
+            document.getElementById('fileNameDisplay').innerText = selectedFile.name;
+            sizeDisplay.innerText = formatBytes(selectedFile.size);
+
+            // Large File Memory Warning (>150MB)
+            if (selectedFile.size > 150 * 1024 * 1024) {
+                warningBox.style.display = 'block';
+                warningBox.innerText = "⚠️ This is a large file. Processing will happen in your RAM. Don't close this tab or your browser may crash.";
+            }
         }
     });
 
     convertBtn.addEventListener('click', async () => {
         errorBox.style.display = 'none';
         const target = toFormat.value;
-        startConversion(selectedFile, target);
-    });
+        const extension = selectedFile.name.split('.').pop().toLowerCase();
+        
+        // Basic Logic Check
+        const isImgInput = ['jpg','jpeg','png','webp'].includes(extension);
+        const isImgTarget = ['jpg','png','webp'].includes(target);
 
-    function showError(msg) {
-        errorBox.innerText = `⚠️ ${msg}`;
-        errorBox.style.display = 'block';
-        progCont.style.display = 'none';
-        convertBtn.disabled = false;
-    }
-
-    async function startConversion(file, target) {
         progCont.style.display = 'block';
         convertBtn.disabled = true;
-        progBar.style.width = '10%';
 
-        const extension = file.name.split('.').pop().toLowerCase();
-        const isImageTarget = ['jpg','png','webp'].includes(target);
-
-        // ENGINE ROUTING
-        if (['jpg','png','webp','jpeg'].includes(extension) && isImageTarget) {
-            runCanvasEngine(file, target);
+        if (isImgInput && isImgTarget) {
+            runCanvasEngine(selectedFile, target);
         } else {
-            runFFmpegEngine(file, target);
+            runFFmpegEngine(selectedFile, target);
         }
-    }
+    });
 
-    async function runCanvasEngine(file, target) {
+    // Image-to-Image Engine (Fastest)
+    function runCanvasEngine(file, target) {
         const reader = new FileReader();
+        reader.onprogress = (e) => {
+            if (e.lengthComputable) progBar.style.width = (e.loaded / e.total * 100) + '%';
+        };
         reader.onload = (e) => {
             const img = new Image();
             img.onload = () => {
@@ -122,7 +164,8 @@
                 canvas.width = img.width; canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0);
-                download(canvas.toDataURL(`image/${target === 'jpg' ? 'jpeg' : target}`), `converted.${target}`);
+                const out = canvas.toDataURL(`image/${target === 'jpg' ? 'jpeg' : target}`);
+                download(out, `converted-${Date.now()}.${target}`);
                 finish();
             };
             img.src = e.target.result;
@@ -130,32 +173,42 @@
         reader.readAsDataURL(file);
     }
 
+    // Multi-Media Engine (FFmpeg)
     async function runFFmpegEngine(file, target) {
         try {
             if (!ffmpeg.isLoaded()) await ffmpeg.load();
             
-            // Track progress
             ffmpeg.setProgress(({ ratio }) => {
-                progBar.style.width = (ratio * 100) + '%';
+                const percent = Math.floor(ratio * 100);
+                progBar.style.width = (percent > 0 ? percent : 5) + '%';
             });
 
-            const name = file.name;
-            const outName = `output.${target}`;
+            const inName = file.name;
+            const outName = `output-${Date.now()}.${target}`;
 
-            // Write file to virtual memory
-            ffmpeg.FS('writeFile', name, await fetchFile(file));
+            // Load file into FFmpeg memory
+            ffmpeg.FS('writeFile', inName, await fetchFile(file));
 
-            // RUN COMMAND: ffmpeg -i input.mp3 output.mp4
-            await ffmpeg.run('-i', name, outName);
+            // Execute Conversion
+            await ffmpeg.run('-i', inName, outName);
 
-            // Read result
+            // Export result
             const data = ffmpeg.FS('readFile', outName);
-            const url = URL.createObjectURL(new Blob([data.buffer], { type: `${target === 'mp4' ? 'video' : 'audio'}/${target}` }));
+            const blobType = target === 'mp4' ? 'video/mp4' : (['mp3','wav'].includes(target) ? 'audio/mpeg' : 'image/gif');
+            const url = URL.createObjectURL(new Blob([data.buffer], { type: blobType }));
             
             download(url, outName);
+
+            // CLEANUP RAM: Delete files from virtual FS
+            ffmpeg.FS('unlink', inName);
+            ffmpeg.FS('unlink', outName);
+            
             finish();
         } catch (e) {
-            showError("FFmpeg Error: Browser security blocked the conversion.");
+            errorBox.style.display = 'block';
+            errorBox.innerText = "❌ Error: Either the format is incompatible or your browser ran out of memory.";
+            convertBtn.disabled = false;
+            progCont.style.display = 'none';
         }
     }
 
@@ -164,7 +217,8 @@
         setTimeout(() => {
             convertBtn.disabled = false;
             progCont.style.display = 'none';
-        }, 1000);
+            alert("Success! Your file has been converted.");
+        }, 800);
     }
 
     function download(url, name) {
